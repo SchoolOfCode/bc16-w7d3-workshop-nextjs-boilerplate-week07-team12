@@ -20,7 +20,6 @@ const fieldToString = (field) => {
     case "postcode":
       return "Postcode";
     case "address":
-    
       return "Address";
     case "phone":
       return "Phone number";
@@ -142,15 +141,14 @@ const initial = {
 };
 
 function dispatchMiddleware(dispatch) {
-  return (action) => {
+  return async (action) => {
     switch (action.type) {
       case FORM_ACTIONS.UPDATE: {
         const { field, value } = action.payload;
-        validate(field, value).then(({ valid, message }) => {
-          dispatch({
-            type: action.type,
-            payload: { ...action.payload, valid, message },
-          });
+        const { valid, message } = await validate(field, value);
+        dispatch({
+          type: action.type,
+          payload: { ...action.payload, valid, message },
         });
         break;
       }
@@ -160,53 +158,59 @@ function dispatchMiddleware(dispatch) {
   };
 }
 
+const updateFieldAndValidate = (state, { field, value, valid, message }) => {
+  const fields = Object.assign(state.fields, {
+    [field]: {
+      value,
+      valid,
+      validationMessage: message,
+    },
+  });
+
+  return { ...state, fields };
+};
+
+const validateForm = (state) => {
+  for (const field in state.fields) {
+    if (!state.fields[field].valid) {
+      state.form.valid = false;
+      state.form.isSubmitting = false;
+      state.form.hasSubmitted = false;
+      return { ...state };
+    }
+  }
+  state.form.valid = true;
+  state.form.isSubmitting = false;
+  state.form.hasSubmitted = false;
+  return { ...state };
+};
+
+const showIsSubmitting = (state) => {
+  const form = Object.assign(state.form, {
+    isSubmitting: true,
+    hasSubmitted: false,
+  });
+  return { ...state, form };
+};
+
+const showSubmitted = (state) => {
+  const form = Object.assign(state.form, {
+    isSubmitting: false,
+    hasSubmitted: true,
+  });
+  return { ...initial, form };
+};
+
 const formReducer = (state, action) => {
   switch (action.type) {
-    case FORM_ACTIONS.UPDATE: {
-      const { field, value, valid, message } = action.payload;
-
-      const fields = Object.assign(state.fields, {
-        [field]: {
-          value,
-          valid,
-          validationMessage: message,
-        },
-      });
-
-      return { ...state, fields };
-    }
-    case FORM_ACTIONS.SUBMISSION_VALIDATE: {
-      for (const field in state.fields) {
-        if (!state.fields[field].valid) {
-          const form = {
-            valid: false,
-            isSubmitting: false,
-            hasSubmitted: false,
-          };
-          return { ...state, form };
-        }
-      }
-      const form = {
-        valid: true,
-        isSubmitting: false,
-        hasSubmitted: false,
-      };
-      return { ...state, form };
-    }
-    case FORM_ACTIONS.SUBMITTING: {
-      const form = Object.assign(state.form, {
-        isSubmitting: true,
-        hasSubmitted: false,
-      });
-      return { ...state, form };
-    }
-    case FORM_ACTIONS.SUBMITTED: {
-      const form = Object.assign(state.form, {
-        isSubmitting: false,
-        hasSubmitted: true,
-      });
-      return { ...initial, form };
-    }
+    case FORM_ACTIONS.UPDATE:
+      return updateFieldAndValidate(state, action.payload);
+    case FORM_ACTIONS.SUBMISSION_VALIDATE:
+      return validateForm(state);
+    case FORM_ACTIONS.SUBMITTING:
+      return showIsSubmitting(state);
+    case FORM_ACTIONS.SUBMITTED:
+      return showSubmitted(state);
     case FORM_ACTIONS.SUBMISSION_ERROR: {
       return state;
     }
@@ -232,22 +236,24 @@ function Booking() {
     });
   });
 
-  const handleSubmit = useCallback((e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
 
     const inputs = e.target.querySelectorAll(".booking__form-input");
 
     // TODO: Maybe think about having a `touched` property in fields state?
     for (const input of inputs) {
-      dispatch({
+      await dispatch({
         type: FORM_ACTIONS.UPDATE,
         payload: { field: input.id, value: input.value },
       });
     }
 
-    dispatch({
+    await dispatch({
       type: FORM_ACTIONS.SUBMISSION_VALIDATE,
     });
+
+    console.log("state.form.valid:", state.form.valid);
 
     if (state.form.valid) {
       dispatch({
@@ -277,165 +283,165 @@ function Booking() {
   return (
     <main className="booking__content">
       <section className="booking__banner">Design Booking</section>
-      { !state.form.hasSubmitted ? (
+      {!state.form.hasSubmitted ? (
         <form
-        className="booking__form"
-        action="api/booking"
-        method="post"
-        onSubmit={handleSubmit}
-      >
-        <ul className="booking__form-container">
-          <h2 className="booking__form-heading">
-            So we know where our fireplace will be going
-          </h2>
-          <div className="input__container">
-            <input
-              id="fname"
-              type="text"
-              className="booking__form-input"
-              placeholder=""
-              onBlur={handleChange}
-              // required
-              // pattern="^[A-Z][a-z]+(?: [A-Z][a-z]+)*$"
-              // onInvalid={(e) => {
-              //   dispatch({ type: FORM_ACTIONS.VALIDATE, payload: e });
-              // }}
-            />
-            <label htmlFor="fname" className="booking__form-label">
-              First Name
-            </label>
-            <span
-              className={`booking__input-error ${
-                state.fields.fname.valid ? "hidden" : ""
-              }`}
-            >
-              {state.fields.fname.validationMessage}
-            </span>
-          </div>
-          <div className="input__container">
-            <input
-              id="lname"
-              type="text"
-              className="booking__form-input"
-              placeholder=""
-              onBlur={handleChange}
-              // required
-              // pattern="^[A-Z][a-z]+(?: [A-Z][a-z]+)*$"
-            />
-            <label htmlFor="lname" className="booking__form-label">
-              Last Name
-            </label>
-            <span
-              className={`booking__input-error ${
-                state.fields.lname.valid ? "hidden" : ""
-              }`}
-            >
-              {state.fields.lname.validationMessage}
-            </span>
-          </div>
-          <div className="input__container">
-            <input
-              id="postcode"
-              type="text"
-              className="booking__form-input"
-              placeholder=""
-              onBlur={handleChange}
-              // required
-              // pattern="^([A-Z][A-HJ-Y]?\d[A-Z\d]? ?\d[A-Z]{2}|GIR ?0A{2})$"
-            />
-            <label htmlFor="postcode" className="booking__form-label">
-              Postcode
-            </label>
-            <span
-              className={`booking__input-error ${
-                state.fields.postcode.valid ? "hidden" : ""
-              }`}
-            >
-              {state.fields.postcode.validationMessage}
-            </span>
-          </div>
-          <div className="input__container">
-            <input
-              id="address"
-              type="text"
-              className="booking__form-input"
-              placeholder=""
-              onBlur={handleChange}
-              // required
-              // pattern="(.|\s)*\S(.|\s)*"
-            />
-            <label htmlFor="address" className="booking__form-label">
-              Address
-            </label>
-            <span
-              className={`booking__input-error ${
-                state.fields.address.valid ? "hidden" : ""
-              }`}
-            >
-              {state.fields.address.validationMessage}
-            </span>
-          </div>
-          <h2 className="booking__form-heading">
-            So we know how to contact you
-          </h2>
-          <div className="input__container">
-            <input
-              id="phone"
-              type="text"
-              className="booking__form-input"
-              placeholder=""
-              onBlur={handleChange}
-              // required
-            />
-            <label htmlFor="phone" className="booking__form-label">
-              Phone Number
-            </label>
-            <span
-              className={`booking__input-error ${
-                state.fields.phone.valid ? "hidden" : ""
-              }`}
-            >
-              {state.fields.phone.validationMessage}
-            </span>
-          </div>
-          <div className="input__container">
-            <input
-              id="email"
-              type="email"
-              className="booking__form-input"
-              placeholder=""
-              onBlur={handleChange}
-              // required
-            />
-            <label htmlFor="email" className="booking__form-label">
-              Email
-            </label>
-            <span
-              className={`booking__input-error ${
-                state.fields.email.valid ? "hidden" : ""
-              }`}
-            >
-              {state.fields.email.validationMessage}
-            </span>
-          </div>
-          {/* <div
+          className="booking__form"
+          action="api/booking"
+          method="post"
+          onSubmit={handleSubmit}
+        >
+          <ul className="booking__form-container">
+            <h2 className="booking__form-heading">
+              So we know where our fireplace will be going
+            </h2>
+            <div className="input__container">
+              <input
+                id="fname"
+                type="text"
+                className="booking__form-input"
+                placeholder=""
+                onBlur={handleChange}
+                // required
+                // pattern="^[A-Z][a-z]+(?: [A-Z][a-z]+)*$"
+                // onInvalid={(e) => {
+                //   dispatch({ type: FORM_ACTIONS.VALIDATE, payload: e });
+                // }}
+              />
+              <label htmlFor="fname" className="booking__form-label">
+                First Name
+              </label>
+              <span
+                className={`booking__input-error ${
+                  state.fields.fname.valid ? "hidden" : ""
+                }`}
+              >
+                {state.fields.fname.validationMessage}
+              </span>
+            </div>
+            <div className="input__container">
+              <input
+                id="lname"
+                type="text"
+                className="booking__form-input"
+                placeholder=""
+                onBlur={handleChange}
+                // required
+                // pattern="^[A-Z][a-z]+(?: [A-Z][a-z]+)*$"
+              />
+              <label htmlFor="lname" className="booking__form-label">
+                Last Name
+              </label>
+              <span
+                className={`booking__input-error ${
+                  state.fields.lname.valid ? "hidden" : ""
+                }`}
+              >
+                {state.fields.lname.validationMessage}
+              </span>
+            </div>
+            <div className="input__container">
+              <input
+                id="postcode"
+                type="text"
+                className="booking__form-input"
+                placeholder=""
+                onBlur={handleChange}
+                // required
+                // pattern="^([A-Z][A-HJ-Y]?\d[A-Z\d]? ?\d[A-Z]{2}|GIR ?0A{2})$"
+              />
+              <label htmlFor="postcode" className="booking__form-label">
+                Postcode
+              </label>
+              <span
+                className={`booking__input-error ${
+                  state.fields.postcode.valid ? "hidden" : ""
+                }`}
+              >
+                {state.fields.postcode.validationMessage}
+              </span>
+            </div>
+            <div className="input__container">
+              <input
+                id="address"
+                type="text"
+                className="booking__form-input"
+                placeholder=""
+                onBlur={handleChange}
+                // required
+                // pattern="(.|\s)*\S(.|\s)*"
+              />
+              <label htmlFor="address" className="booking__form-label">
+                Address
+              </label>
+              <span
+                className={`booking__input-error ${
+                  state.fields.address.valid ? "hidden" : ""
+                }`}
+              >
+                {state.fields.address.validationMessage}
+              </span>
+            </div>
+            <h2 className="booking__form-heading">
+              So we know how to contact you
+            </h2>
+            <div className="input__container">
+              <input
+                id="phone"
+                type="text"
+                className="booking__form-input"
+                placeholder=""
+                onBlur={handleChange}
+                // required
+              />
+              <label htmlFor="phone" className="booking__form-label">
+                Phone Number
+              </label>
+              <span
+                className={`booking__input-error ${
+                  state.fields.phone.valid ? "hidden" : ""
+                }`}
+              >
+                {state.fields.phone.validationMessage}
+              </span>
+            </div>
+            <div className="input__container">
+              <input
+                id="email"
+                type="email"
+                className="booking__form-input"
+                placeholder=""
+                onBlur={handleChange}
+                // required
+              />
+              <label htmlFor="email" className="booking__form-label">
+                Email
+              </label>
+              <span
+                className={`booking__input-error ${
+                  state.fields.email.valid ? "hidden" : ""
+                }`}
+              >
+                {state.fields.email.validationMessage}
+              </span>
+            </div>
+            {/* <div
             className={`booking__form-validation ${
               state.form.valid ? "hidden" : ""
             }`}
           >
             There were some errors in the inputs. Please check!
           </div> */}
-          <button
-            disabled={!state.form.valid}
-            type="submit"
-            className={`booking__form-submit ${
-              state.form.valid ? "" : "booking__form-error"
-            }`}
-          >
-            {state.form.valid ? "Book Consultation" : "Please fix the errors"}
-          </button>
-        </ul>
-      </form>
+            <button
+              disabled={!state.form.valid}
+              type="submit"
+              className={`booking__form-submit ${
+                state.form.valid ? "" : "booking__form-error"
+              }`}
+            >
+              {state.form.valid ? "Book Consultation" : "Please fix the errors"}
+            </button>
+          </ul>
+        </form>
       ) : (
         <div className="booking__form-container">
           <h2 className="booking__form-message">Consultation booked!</h2>
