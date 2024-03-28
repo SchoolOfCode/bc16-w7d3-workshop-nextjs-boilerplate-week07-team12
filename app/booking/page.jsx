@@ -178,7 +178,15 @@ function Booking() {
         type: SUBMITTING,
       });
 
-      postForm("/api/booking", state.fields)
+      const body = {
+        name: `${state.fields.fname.value} ${state.fields.lname.value}`,
+        address: state.fields.address.value,
+        postcode: state.fields.postcode.value,
+        phone: state.fields.phone.value,
+        email: state.fields.email.value,
+      };
+
+      postForm("/api/booking", body)
         .then((result) => {
           dispatch({
             type: SUBMITTED,
