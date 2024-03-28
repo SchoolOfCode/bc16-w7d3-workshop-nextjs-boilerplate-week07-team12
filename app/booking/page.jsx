@@ -1,14 +1,11 @@
 "use client";
-import React, { useCallback, useEffect, useReducer } from "react";
+import React, { useCallback, useReducer } from "react";
 import "./page.css";
 
 const postForm = (url, body) =>
-  new Promise((res, rej) => {
-    const t = setTimeout(() => {
-      console.table(body);
-      res({ message: "Success!" });
-      clearTimeout(t);
-    }, 1000);
+  fetch(url, {
+    body: JSON.stringify(body),
+    method: "post",
   });
 
 const fieldToString = (field) => {
@@ -52,6 +49,7 @@ const validators = {
     };
   },
   async postcode(value) {
+    // TODO: Sanitise the value
     const response = await fetch(
       `https://api.postcodes.io/postcodes/${value}/validate`,
     );
@@ -104,8 +102,8 @@ const validators = {
 
 function validate(field, input) {
   const value = input.trim();
-  // Universal validation (eg. not empty)
 
+  // Universal validation (eg. not empty)
   // Can't be blank
   if (value === "") {
     return Promise.resolve({
@@ -121,68 +119,31 @@ function validate(field, input) {
 // REDUCER
 
 const FORM_ACTIONS = {
-  UPDATE: "FORM_UPDATE",
-  SUBMISSION_VALIDATE: "FORM_SUBMISSION_VALIDATE",
   SUBMITTING: "FORM_SUBMITTING",
   SUBMITTED: "FORM_SUBMITTED",
   SUBMISSION_ERROR: "FORM_SUBMISSION_ERROR",
+  UPDATE_FIELD: "FORM_UPDATE_FIELD",
+  TOUCH_FORM: "FORM_TOUCH",
 };
 
 const initial = {
   fields: {
-    fname: { value: "", valid: true, validationMessage: "" },
-    lname: { value: "", valid: true, validationMessage: "" },
-    postcode: { value: "", valid: true, validationMessage: "" },
-    address: { value: "", valid: true, validationMessage: "" },
-    phone: { value: "", valid: true, validationMessage: "" },
-    email: { value: "", valid: true, validationMessage: "" },
-  },
-  form: { valid: true, isSubmitting: false, hasSubmitted: false },
-};
-
-function dispatchMiddleware(dispatch) {
-  return async (action) => {
-    switch (action.type) {
-      case FORM_ACTIONS.UPDATE: {
-        const { field, value } = action.payload;
-        const { valid, message } = await validate(field, value);
-        dispatch({
-          type: action.type,
-          payload: { ...action.payload, valid, message },
-        });
-        break;
-      }
-      default:
-        return dispatch(action);
-    }
-  };
-}
-
-const updateFieldAndValidate = (state, { field, value, valid, message }) => {
-  const fields = Object.assign(state.fields, {
-    [field]: {
-      value,
-      valid,
-      validationMessage: message,
+    fname: { value: "", touched: false, valid: false, validationMessage: "" },
+    lname: { value: "", touched: false, valid: false, validationMessage: "" },
+    postcode: {
+      value: "",
+      touched: false,
+      valid: false,
+      validationMessage: "",
     },
-  });
-
-  return { ...state, fields };
-};
-
-const validateForm = (state) => {
-  for (const field in state.fields) {
-    if (!state.fields[field].valid) {
-      state.form.valid = false;
-      state.form.isSubmitting = false;
-      state.form.hasSubmitted = false;
-      return { ...state };
-    }
-  }
-  state.form.valid = true;
-  state.form.isSubmitting = false;
-  state.form.hasSubmitted = false;
-  return { ...state };
+    address: { value: "", touched: false, valid: false, validationMessage: "" },
+    phone: { value: "", touched: false, valid: false, validationMessage: "" },
+    email: { value: "", touched: false, valid: false, validationMessage: "" },
+  },
+  form: {
+    isSubmitting: false,
+    hasSubmitted: false,
+  },
 };
 
 const showIsSubmitting = (state) => {
@@ -201,12 +162,29 @@ const showSubmitted = (state) => {
   return { ...initial, form };
 };
 
+const updateField = (state, { field, value, valid, message }) => {
+  const updatedField = Object.assign(state.fields[field], {
+    value,
+    touched: true,
+    valid,
+    validationMessage: message,
+  });
+  return {
+    form: state.form,
+    fields: { ...state.fields, [field]: updatedField },
+  };
+};
+
+const touchForm = (state) => {
+  const updatedForm = Object.assign(state.form, { touched: true });
+  for (const fieldName in state.fields) {
+    state.fields[fieldName].touched = true;
+  }
+  return { form: { ...updatedForm }, fields: { ...state.fields } };
+};
+
 const formReducer = (state, action) => {
   switch (action.type) {
-    case FORM_ACTIONS.UPDATE:
-      return updateFieldAndValidate(state, action.payload);
-    case FORM_ACTIONS.SUBMISSION_VALIDATE:
-      return validateForm(state);
     case FORM_ACTIONS.SUBMITTING:
       return showIsSubmitting(state);
     case FORM_ACTIONS.SUBMITTED:
@@ -214,6 +192,11 @@ const formReducer = (state, action) => {
     case FORM_ACTIONS.SUBMISSION_ERROR: {
       return state;
     }
+    case FORM_ACTIONS.UPDATE_FIELD:
+      return updateField(state, action.payload);
+
+    case FORM_ACTIONS.TOUCH_FORM:
+      return touchForm(state);
     default:
       return state;
   }
@@ -222,40 +205,40 @@ const formReducer = (state, action) => {
 // COMPONENT
 
 function Booking() {
-  const [state, rootDispatch] = useReducer(formReducer, initial);
-  const dispatch = dispatchMiddleware(rootDispatch);
+  const [state, dispatch] = useReducer(formReducer, initial);
 
-  const handleChange = useCallback(async (e) => {
-    await dispatch({
-      type: FORM_ACTIONS.UPDATE,
-      payload: { field: e.target.id, value: e.target.value },
-    });
+  const values = Object.values(state.fields);
+  console.log("state.fields.length", values.length);
+  const formIsValid = values.every((fieldState) => {
+    console.log(`field is valid: ${fieldState.valid}`);
+    console.log(`field is touched: ${fieldState.touched}`);
+    return fieldState.valid;
+  });
 
-    dispatch({
-      type: FORM_ACTIONS.SUBMISSION_VALIDATE,
+  console.log(state.fields);
+
+  const handleChange = useCallback((e) => {
+    const fieldName = e.target.id;
+
+    validate(fieldName, e.target.value).then(({ valid, message }) => {
+      dispatch({
+        type: FORM_ACTIONS.UPDATE_FIELD,
+        payload: {
+          field: fieldName,
+          value: e.target.value,
+          valid,
+          message,
+        },
+      });
     });
   });
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
 
-    const inputs = e.target.querySelectorAll(".booking__form-input");
+    console.log("[handleSubmit] form is valid:", formIsValid);
 
-    // TODO: Maybe think about having a `touched` property in fields state?
-    for (const input of inputs) {
-      await dispatch({
-        type: FORM_ACTIONS.UPDATE,
-        payload: { field: input.id, value: input.value },
-      });
-    }
-
-    await dispatch({
-      type: FORM_ACTIONS.SUBMISSION_VALIDATE,
-    });
-
-    console.log("state.form.valid:", state.form.valid);
-
-    if (state.form.valid) {
+    if (formIsValid) {
       dispatch({
         type: FORM_ACTIONS.SUBMITTING,
       });
@@ -277,6 +260,24 @@ function Booking() {
             },
           });
         });
+    } else {
+      dispatch({
+        type: FORM_ACTIONS.TOUCH_FORM,
+      });
+      for (const fieldName in state.fields) {
+        const field = state.fields[fieldName];
+        validate(fieldName, field.value).then(({ valid, message }) => {
+          dispatch({
+            type: FORM_ACTIONS.UPDATE_FIELD,
+            payload: {
+              field: fieldName,
+              value: field.value,
+              valid,
+              message,
+            },
+          });
+        });
+      }
     }
   });
 
@@ -424,21 +425,16 @@ function Booking() {
                 {state.fields.email.validationMessage}
               </span>
             </div>
-            {/* <div
-            className={`booking__form-validation ${
-              state.form.valid ? "hidden" : ""
-            }`}
-          >
-            There were some errors in the inputs. Please check!
-          </div> */}
             <button
-              disabled={!state.form.valid}
+              // disabled={!formIsValid}
               type="submit"
               className={`booking__form-submit ${
-                state.form.valid ? "" : "booking__form-error"
+                formIsValid || !state.form.touched ? "" : "booking__form-error"
               }`}
             >
-              {state.form.valid ? "Book Consultation" : "Please fix the errors"}
+              {formIsValid || !state.form.touched
+                ? "Book Consultation"
+                : "Please fix the errors"}
             </button>
           </ul>
         </form>
