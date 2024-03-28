@@ -295,147 +295,61 @@ function Booking() {
             <h2 className="booking__form-heading">
               So we know where our fireplace will be going
             </h2>
-            <div className="input__container">
-              <input
-                id="fname"
-                type="text"
-                className="booking__form-input"
-                placeholder=""
-                onBlur={handleChange}
-                // required
-                // pattern="^[A-Z][a-z]+(?: [A-Z][a-z]+)*$"
-                // onInvalid={(e) => {
-                //   dispatch({ type: FORM_ACTIONS.VALIDATE, payload: e });
-                // }}
-              />
-              <label htmlFor="fname" className="booking__form-label">
-                First Name
-              </label>
-              <span
-                className={`booking__input-error ${
-                  state.fields.fname.valid ? "hidden" : ""
-                }`}
-              >
-                {state.fields.fname.validationMessage}
-              </span>
-            </div>
-            <div className="input__container">
-              <input
-                id="lname"
-                type="text"
-                className="booking__form-input"
-                placeholder=""
-                onBlur={handleChange}
-                // required
-                // pattern="^[A-Z][a-z]+(?: [A-Z][a-z]+)*$"
-              />
-              <label htmlFor="lname" className="booking__form-label">
-                Last Name
-              </label>
-              <span
-                className={`booking__input-error ${
-                  state.fields.lname.valid ? "hidden" : ""
-                }`}
-              >
-                {state.fields.lname.validationMessage}
-              </span>
-            </div>
-            <div className="input__container">
-              <input
-                id="postcode"
-                type="text"
-                className="booking__form-input"
-                placeholder=""
-                onBlur={handleChange}
-                // required
-                // pattern="^([A-Z][A-HJ-Y]?\d[A-Z\d]? ?\d[A-Z]{2}|GIR ?0A{2})$"
-              />
-              <label htmlFor="postcode" className="booking__form-label">
-                Postcode
-              </label>
-              <span
-                className={`booking__input-error ${
-                  state.fields.postcode.valid ? "hidden" : ""
-                }`}
-              >
-                {state.fields.postcode.validationMessage}
-              </span>
-            </div>
-            <div className="input__container">
-              <input
-                id="address"
-                type="text"
-                className="booking__form-input"
-                placeholder=""
-                onBlur={handleChange}
-                // required
-                // pattern="(.|\s)*\S(.|\s)*"
-              />
-              <label htmlFor="address" className="booking__form-label">
-                Address
-              </label>
-              <span
-                className={`booking__input-error ${
-                  state.fields.address.valid ? "hidden" : ""
-                }`}
-              >
-                {state.fields.address.validationMessage}
-              </span>
-            </div>
+            <InputField
+              name="fname"
+              type="text"
+              onBlur={handleChange}
+              label="First Name"
+              valid={state.fields.fname.valid}
+              validationMessage={state.fields.fname.validationMessage}
+            />
+            <InputField
+              name="lname"
+              type="text"
+              onBlur={handleChange}
+              label="Last Name"
+              valid={state.fields.lname.valid}
+              validationMessage={state.fields.lname.validationMessage}
+            />
+            <InputField
+              name="postcode"
+              type="text"
+              onBlur={handleChange}
+              label="Postcode"
+              valid={state.fields.postcode.valid}
+              validationMessage={state.fields.postcode.validationMessage}
+            />
+            <InputField
+              name="address"
+              type="text"
+              onBlur={handleChange}
+              label="Address"
+              valid={state.fields.address.valid}
+              validationMessage={state.fields.address.validationMessage}
+            />
             <h2 className="booking__form-heading">
               So we know how to contact you
             </h2>
-            <div className="input__container">
-              <input
-                id="phone"
-                type="text"
-                className="booking__form-input"
-                placeholder=""
-                onBlur={handleChange}
-                // required
-              />
-              <label htmlFor="phone" className="booking__form-label">
-                Phone Number
-              </label>
-              <span
-                className={`booking__input-error ${
-                  state.fields.phone.valid ? "hidden" : ""
-                }`}
-              >
-                {state.fields.phone.validationMessage}
-              </span>
-            </div>
-            <div className="input__container">
-              <input
-                id="email"
-                type="email"
-                className="booking__form-input"
-                placeholder=""
-                onBlur={handleChange}
-                // required
-              />
-              <label htmlFor="email" className="booking__form-label">
-                Email
-              </label>
-              <span
-                className={`booking__input-error ${
-                  state.fields.email.valid ? "hidden" : ""
-                }`}
-              >
-                {state.fields.email.validationMessage}
-              </span>
-            </div>
-            <button
-              // disabled={!formIsValid}
-              type="submit"
-              className={`booking__form-submit ${
-                formIsValid || !state.form.touched ? "" : "booking__form-error"
-              }`}
-            >
-              {formIsValid || !state.form.touched
-                ? "Book Consultation"
-                : "Please fix the errors"}
-            </button>
+            <InputField
+              name="phone"
+              type="text"
+              onBlur={handleChange}
+              label="Phone Number"
+              valid={state.fields.phone.valid}
+              validationMessage={state.fields.phone.validationMessage}
+            />
+            <InputField
+              name="email"
+              type="email"
+              onBlur={handleChange}
+              label="Email"
+              valid={state.fields.email.valid}
+              validationMessage={state.fields.email.validationMessage}
+            />
+            <SubmitButton
+              formIsValid={formIsValid}
+              touched={state.form.touched}
+            />
           </ul>
         </form>
       ) : (
@@ -444,6 +358,40 @@ function Booking() {
         </div>
       )}
     </main>
+  );
+}
+
+function SubmitButton({ formIsValid, touched }) {
+  return (
+    <button
+      type="submit"
+      className={`booking__form-submit ${
+        formIsValid || !touched ? "" : "booking__form-error"
+      }`}
+    >
+      {formIsValid || !touched ? "Book Consultation" : "Please fix the errors"}
+    </button>
+  );
+}
+
+function InputField({ name, type, onBlur, label, valid, validationMessage }) {
+  return (
+    <div className="input__container">
+      <input
+        id={name}
+        type={type}
+        className="booking__form-input"
+        placeholder=""
+        onBlur={onBlur}
+        // required
+      />
+      <label htmlFor={name} className="booking__form-label">
+        {label}
+      </label>
+      <span className={`booking__input-error ${valid ? "hidden" : ""}`}>
+        {validationMessage}
+      </span>
+    </div>
   );
 }
 
