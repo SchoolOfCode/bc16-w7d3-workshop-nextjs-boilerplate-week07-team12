@@ -2,6 +2,11 @@
 import React, { useCallback, useReducer } from "react";
 import "./page.css";
 
+import { formReducer, FORM_ACTIONS } from "./reducers";
+
+const { SUBMITTING, SUBMITTED, SUBMISSION_ERROR, UPDATE_FIELD, TOUCH_FORM } =
+  FORM_ACTIONS;
+
 const postForm = (url, body) =>
   fetch(url, {
     body: JSON.stringify(body),
@@ -116,16 +121,6 @@ function validate(field, input) {
   return validators[field](value);
 }
 
-// REDUCER
-
-const FORM_ACTIONS = {
-  SUBMITTING: "FORM_SUBMITTING",
-  SUBMITTED: "FORM_SUBMITTED",
-  SUBMISSION_ERROR: "FORM_SUBMISSION_ERROR",
-  UPDATE_FIELD: "FORM_UPDATE_FIELD",
-  TOUCH_FORM: "FORM_TOUCH",
-};
-
 const initial = {
   fields: {
     fname: { value: "", touched: false, valid: false, validationMessage: "" },
@@ -146,64 +141,6 @@ const initial = {
   },
 };
 
-const showIsSubmitting = (state) => {
-  const form = Object.assign(state.form, {
-    isSubmitting: true,
-    hasSubmitted: false,
-  });
-  return { ...state, form };
-};
-
-const showSubmitted = (state) => {
-  const form = Object.assign(state.form, {
-    isSubmitting: false,
-    hasSubmitted: true,
-  });
-  return { ...initial, form };
-};
-
-const updateField = (state, { field, value, valid, message }) => {
-  const updatedField = Object.assign(state.fields[field], {
-    value,
-    touched: true,
-    valid,
-    validationMessage: message,
-  });
-  return {
-    form: state.form,
-    fields: { ...state.fields, [field]: updatedField },
-  };
-};
-
-const touchForm = (state) => {
-  const updatedForm = Object.assign(state.form, { touched: true });
-  for (const fieldName in state.fields) {
-    state.fields[fieldName].touched = true;
-  }
-  return { form: { ...updatedForm }, fields: { ...state.fields } };
-};
-
-const formReducer = (state, action) => {
-  switch (action.type) {
-    case FORM_ACTIONS.SUBMITTING:
-      return showIsSubmitting(state);
-    case FORM_ACTIONS.SUBMITTED:
-      return showSubmitted(state);
-    case FORM_ACTIONS.SUBMISSION_ERROR: {
-      return state;
-    }
-    case FORM_ACTIONS.UPDATE_FIELD:
-      return updateField(state, action.payload);
-
-    case FORM_ACTIONS.TOUCH_FORM:
-      return touchForm(state);
-    default:
-      return state;
-  }
-};
-
-// COMPONENT
-
 function Booking() {
   const [state, dispatch] = useReducer(formReducer, initial);
 
@@ -222,7 +159,7 @@ function Booking() {
 
     validate(fieldName, e.target.value).then(({ valid, message }) => {
       dispatch({
-        type: FORM_ACTIONS.UPDATE_FIELD,
+        type: UPDATE_FIELD,
         payload: {
           field: fieldName,
           value: e.target.value,
@@ -236,25 +173,21 @@ function Booking() {
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
 
-    console.log("[handleSubmit] form is valid:", formIsValid);
-
     if (formIsValid) {
       dispatch({
-        type: FORM_ACTIONS.SUBMITTING,
+        type: SUBMITTING,
       });
 
       postForm("/api/booking", state.fields)
         .then((result) => {
           dispatch({
-            type: FORM_ACTIONS.SUBMITTED,
-            payload: {
-              message: result.message,
-            },
+            type: SUBMITTED,
+            payload: initial,
           });
         })
         .catch((err) => {
           dispatch({
-            type: FORM_ACTIONS.SUBMISSION_ERROR,
+            type: SUBMISSION_ERROR,
             payload: {
               message: err.message,
             },
@@ -262,13 +195,13 @@ function Booking() {
         });
     } else {
       dispatch({
-        type: FORM_ACTIONS.TOUCH_FORM,
+        type: TOUCH_FORM,
       });
       for (const fieldName in state.fields) {
         const field = state.fields[fieldName];
         validate(fieldName, field.value).then(({ valid, message }) => {
           dispatch({
-            type: FORM_ACTIONS.UPDATE_FIELD,
+            type: UPDATE_FIELD,
             payload: {
               field: fieldName,
               value: field.value,
