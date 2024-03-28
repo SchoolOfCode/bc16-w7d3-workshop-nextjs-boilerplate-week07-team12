@@ -1,139 +1,332 @@
 "use client";
-import React, { useState } from "react";
+import React, { useCallback, useReducer } from "react";
 import "./page.css";
 
-function Booking() {
-  const [formData, setFormData] = useState({
-    fname: "",
-    lname: "",
-    postcode: "",
-    address: "",
-    phone: "",
-    email: "",
+import { formReducer, FORM_ACTIONS } from "./reducers";
+
+const { SUBMITTING, SUBMITTED, SUBMISSION_ERROR, UPDATE_FIELD, TOUCH_FORM } =
+  FORM_ACTIONS;
+
+const postForm = (url, body) =>
+  fetch(url, {
+    body: JSON.stringify(body),
+    method: "post",
   });
 
-  function handleChange(e) {
-    const { id, value } = e.target;
-    setFormData((prevState) => ({
-      ...prevState,
-      [id]: value,
-    }));
+const fieldToString = (field) => {
+  switch (field) {
+    case "fname":
+      return "First Name";
+    case "lname":
+      return "Last Name";
+    case "postcode":
+      return "Postcode";
+    case "address":
+      return "Address";
+    case "phone":
+      return "Phone number";
+    case "email":
+      return "email";
   }
+};
 
-  const [validationMessage, setValidationMessage] = useState("");
-
-  function handleSubmit(e) {
-    e.preventDefault();
-    const isEmptyField = Object.values(formData).some((value) => value === "");
-    if (isEmptyField) {
-      setValidationMessage("Please fill in all fields");
-    } else {
-      setValidationMessage("");
-
-      console.log(`Form data: ${JSON.stringify(formData)}`);
+const validators = {
+  async fname(value) {
+    if (value.length > 20) {
+      return {
+        valid: false,
+        message: "The first name can't be over 20 characters long",
+      };
     }
+    return {
+      valid: true,
+    };
+  },
+  async lname(value) {
+    if (value.length > 20) {
+      return {
+        valid: false,
+        message: "The last name can't be over 20 characters long",
+      };
+    }
+    return {
+      valid: true,
+    };
+  },
+  async postcode(value) {
+    // TODO: Sanitise the value
+    const response = await fetch(
+      `https://api.postcodes.io/postcodes/${value}/validate`,
+    );
+    const { status, result } = await response.json();
+    if (result === false) {
+      return {
+        valid: false,
+        message: "The post code must be valid",
+      };
+    }
+    return {
+      valid: true,
+    };
+  },
+  async address(value) {
+    return {
+      valid: true,
+    };
+  },
+  async phone(value) {
+    const numWithoutSpaces = value.split(" ").join("");
+    if (numWithoutSpaces.length < 11) {
+      return {
+        valid: false,
+        message: "The phone number must be at least 11 digits long",
+      };
+    }
+    if (!/\d+/.test(numWithoutSpaces)) {
+      return {
+        valid: false,
+        message: "The phone number must contain only digits",
+      };
+    }
+    return {
+      valid: true,
+    };
+  },
+  async email(value) {
+    if (!/\w+\@[a-zA-Z|\d]+\.\w+/.test(value)) {
+      return {
+        valid: false,
+        message: "Please input an valid email address",
+      };
+    }
+    return {
+      valid: true,
+    };
+  },
+};
+
+function validate(field, input) {
+  const value = input.trim();
+
+  // Universal validation (eg. not empty)
+  // Can't be blank
+  if (value === "") {
+    return Promise.resolve({
+      valid: false,
+      message: `The ${fieldToString(field)} cannot be blank`,
+    });
   }
+
+  // Then pass it to individual validation
+  return validators[field](value);
+}
+
+const initial = {
+  fields: {
+    fname: { value: "", touched: false, valid: false, validationMessage: "" },
+    lname: { value: "", touched: false, valid: false, validationMessage: "" },
+    postcode: {
+      value: "",
+      touched: false,
+      valid: false,
+      validationMessage: "",
+    },
+    address: { value: "", touched: false, valid: false, validationMessage: "" },
+    phone: { value: "", touched: false, valid: false, validationMessage: "" },
+    email: { value: "", touched: false, valid: false, validationMessage: "" },
+  },
+  form: {
+    isSubmitting: false,
+    hasSubmitted: false,
+  },
+};
+
+function Booking() {
+  const [state, dispatch] = useReducer(formReducer, initial);
+
+  const formIsValid = Object.values(state.fields).every(
+    (fieldState) => fieldState.valid,
+  );
+
+  const handleChange = useCallback((e) => {
+    const fieldName = e.target.id;
+
+    validate(fieldName, e.target.value).then(({ valid, message }) => {
+      dispatch({
+        type: UPDATE_FIELD,
+        payload: {
+          field: fieldName,
+          value: e.target.value,
+          valid,
+          message,
+        },
+      });
+    });
+  });
+
+  const handleSubmit = useCallback(async (e) => {
+    e.preventDefault();
+
+    if (formIsValid) {
+      dispatch({
+        type: SUBMITTING,
+      });
+
+      const body = {
+        name: `${state.fields.fname.value} ${state.fields.lname.value}`,
+        address: state.fields.address.value,
+        postcode: state.fields.postcode.value,
+        phone: state.fields.phone.value,
+        email: state.fields.email.value,
+      };
+
+      postForm("/api/booking", body)
+        .then((result) => {
+          dispatch({
+            type: SUBMITTED,
+            payload: initial,
+          });
+        })
+        .catch((err) => {
+          dispatch({
+            type: SUBMISSION_ERROR,
+            payload: {
+              message: err.message,
+            },
+          });
+        });
+    } else {
+      dispatch({
+        type: TOUCH_FORM,
+      });
+      for (const fieldName in state.fields) {
+        const field = state.fields[fieldName];
+        validate(fieldName, field.value).then(({ valid, message }) => {
+          dispatch({
+            type: UPDATE_FIELD,
+            payload: {
+              field: fieldName,
+              value: field.value,
+              valid,
+              message,
+            },
+          });
+        });
+      }
+    }
+  });
+
   return (
     <main className="booking__content">
       <section className="booking__banner">Design Booking</section>
-      <form
-        className="booking__form"
-        action="api/booking"
-        method="post"
-        onSubmit={handleSubmit}
-      >
-        <ul className="booking__form-list">
-          <h2 className="booking__form-heading">So we know where our fireplace will be going</h2>
-          <div className="input__container">
-            <input
-              id="fname"
+      {!state.form.hasSubmitted ? (
+        <form
+          className="booking__form"
+          action="api/booking"
+          method="post"
+          onSubmit={handleSubmit}
+        >
+          <ul className="booking__form-container">
+            <h2 className="booking__form-heading">
+              So we know where our fireplace will be going
+            </h2>
+            <InputField
+              name="fname"
               type="text"
-              className="booking__form-input"
-              placeholder=""
               onBlur={handleChange}
-              required
-              pattern="^[A-Z][a-z]+(?: [A-Z][a-z]+)*$"
+              label="First Name"
+              valid={state.fields.fname.valid}
+              validationMessage={state.fields.fname.validationMessage}
             />
-            <label htmlFor="fname" className="booking__form-label">
-              First Name
-            </label>
-          </div>
-          <div className="input__container">
-            <input
-              id="lname"
+            <InputField
+              name="lname"
               type="text"
-              className="booking__form-input"
-              placeholder=""
               onBlur={handleChange}
-              required
-              pattern="^[A-Z][a-z]+(?: [A-Z][a-z]+)*$"
+              label="Last Name"
+              valid={state.fields.lname.valid}
+              validationMessage={state.fields.lname.validationMessage}
             />
-            <label htmlFor="lname" className="booking__form-label">
-              Last Name
-            </label>
-          </div>
-          <div className="input__container">
-            <input
-              id="postcode"
+            <InputField
+              name="postcode"
               type="text"
-              className="booking__form-input"
-              placeholder=""
               onBlur={handleChange}
-              required
-              pattern="^([A-Z][A-HJ-Y]?\d[A-Z\d]? ?\d[A-Z]{2}|GIR ?0A{2})$"
+              label="Postcode"
+              valid={state.fields.postcode.valid}
+              validationMessage={state.fields.postcode.validationMessage}
             />
-            <label htmlFor="postcode" className="booking__form-label">
-              Postcode
-            </label>
-          </div>
-          <div className="input__container">
-            <input
-              id="address"
+            <InputField
+              name="address"
               type="text"
-              className="booking__form-input"
-              placeholder=""
               onBlur={handleChange}
-              required
-              pattern="(.|\s)*\S(.|\s)*"
+              label="Address"
+              valid={state.fields.address.valid}
+              validationMessage={state.fields.address.validationMessage}
             />
-            <label htmlFor="address" className="booking__form-label">
-              Address
-            </label>
-          </div>
-          <h2 className="booking__form-heading">So we know how to contact you</h2>
-          <div className="input__container">
-            <input
-              id="phone"
+            <h2 className="booking__form-heading">
+              So we know how to contact you
+            </h2>
+            <InputField
+              name="phone"
               type="text"
-              className="booking__form-input"
-              placeholder=""
               onBlur={handleChange}
-              required
+              label="Phone Number"
+              valid={state.fields.phone.valid}
+              validationMessage={state.fields.phone.validationMessage}
             />
-            <label htmlFor="phone" className="booking__form-label">
-              Phone Number
-            </label>
-          </div>
-          <div className="input__container">
-            <input
-              id="email"
+            <InputField
+              name="email"
               type="email"
-              required
-              className="booking__form-input"
-              placeholder=""
               onBlur={handleChange}
+              label="Email"
+              valid={state.fields.email.valid}
+              validationMessage={state.fields.email.validationMessage}
             />
-            <label htmlFor="email" className="booking__form-label">
-              Email
-            </label>
-          </div>
-          <button type="submit" className="booking__form-submit">
-            Book Consultation
-          </button>
-        </ul>
-        <div className="booking__form-validation">{validationMessage}</div>
-      </form>
+            <SubmitButton
+              formIsValid={formIsValid}
+              touched={state.form.touched}
+            />
+          </ul>
+        </form>
+      ) : (
+        <div className="booking__form-container">
+          <h2 className="booking__form-message">Consultation booked!</h2>
+        </div>
+      )}
     </main>
+  );
+}
+
+function SubmitButton({ formIsValid, touched }) {
+  return (
+    <button
+      type="submit"
+      className={`booking__form-submit ${
+        formIsValid || !touched ? "" : "booking__form-error"
+      }`}
+    >
+      {formIsValid || !touched ? "Book Consultation" : "Please fix the errors"}
+    </button>
+  );
+}
+
+function InputField({ name, type, onBlur, label, valid, validationMessage }) {
+  return (
+    <div className="input__container">
+      <input
+        id={name}
+        type={type}
+        className="booking__form-input"
+        placeholder=""
+        onBlur={onBlur}
+        // required
+      />
+      <label htmlFor={name} className="booking__form-label">
+        {label}
+      </label>
+      <span className={`booking__input-error ${valid ? "hidden" : ""}`}>
+        {validationMessage}
+      </span>
+    </div>
   );
 }
 

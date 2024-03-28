@@ -40,7 +40,8 @@ a:active {
   color: var(--color-dark);
 }
 
-input, button {
+input,
+button {
   outline: none;
   padding: .5rem;
   border: none;
@@ -48,4 +49,9 @@ input, button {
 
 input:focus {
   border-bottom: 1px solid var(--accent-color);
+}
+
+.hidden {
+  opacity: 0;
+  visibility: hidden;
 }
