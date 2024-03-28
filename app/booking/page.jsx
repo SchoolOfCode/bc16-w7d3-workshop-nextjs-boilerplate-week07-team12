@@ -144,15 +144,9 @@ const initial = {
 function Booking() {
   const [state, dispatch] = useReducer(formReducer, initial);
 
-  const values = Object.values(state.fields);
-  console.log("state.fields.length", values.length);
-  const formIsValid = values.every((fieldState) => {
-    console.log(`field is valid: ${fieldState.valid}`);
-    console.log(`field is touched: ${fieldState.touched}`);
-    return fieldState.valid;
-  });
-
-  console.log(state.fields);
+  const formIsValid = Object.values(state.fields).every(
+    (fieldState) => fieldState.valid,
+  );
 
   const handleChange = useCallback((e) => {
     const fieldName = e.target.id;
