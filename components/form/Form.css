@@ -1,0 +1,74 @@
+.booking__form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.booking__form-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  border: 1px solid var(--accent-color);
+  border-radius: 5px;
+  width: 100%;
+
+  transition: width 0.125s ease-in-out;
+}
+
+.booking__form-heading {
+  margin-bottom: 1rem;
+  text-wrap: pretty;
+}
+
+.input__container {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.booking__form-input {
+  border: 1px solid rgba(255, 255, 255, 0);
+  border-radius: 4px;
+  transition: border 0.125s ease-in-out;
+  width: 100%;
+  font-size: 1rem;
+}
+
+.booking__form-label {
+  position: absolute;
+  left: 15px;
+  top: 25px;
+
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.booking__form-input:focusout + .booking__form-label,
+.booking__form-input:not(:placeholder-shown) + .booking__form-label {
+  top: 13px;
+  left: 17px;
+  font-size: 1rem;
+  opacity: 1;
+}
+
+.booking__form-input:focus + .booking__form-label,
+.booking__form-input:not(:placeholder-shown) + .booking__form-label {
+  top: 13px;
+  left: 17px;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.booking__form-input:focus:invalid {
+  border: 1px solid red;
+}
+
+@media screen and (min-width: 800px) {
+  .booking__form-container {
+    width: 600px;
+  }
+}

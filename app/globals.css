@@ -35,6 +35,10 @@ main,
   max-width: 1024px;
 }
 
+main {
+  min-height: calc(100vh - (var(--header-height) + var(--footer-height)));
+}
+
 a:visited,
 a:active {
   color: var(--color-dark);
@@ -48,4 +52,9 @@ input, button {
 
 input:focus {
   border-bottom: 1px solid var(--accent-color);
+}
+
+.hidden {
+  opacity: 0;
+  visibility: hidden;
 }
