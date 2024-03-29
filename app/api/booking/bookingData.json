@@ -1,0 +1,18 @@
+[
+  {
+    "fname": "John",
+    "lname": "Doeseph",
+    "postcode": "CV6 3GF",
+    "address": "999 Bingbong street",
+    "phone": "07928827152",
+    "email": "bing@bong.bingbong"
+  },
+  {
+    "fname": "James",
+    "lname": "Hearn",
+    "postcode": "CV6 3GF",
+    "address": "999 Bingbong road",
+    "phone": "07987462472",
+    "email": "bing@bong.com"
+  }
+]
